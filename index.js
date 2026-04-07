@@ -4,14 +4,31 @@ const puppeteer = require('puppeteer');
 const app = express();
 
 // JSON limit
-app.use(express.json({ limit: '20mb' }));
+app.use(express.json({ limit: '25mb' }));
 
 // ==========================
-// ROOT (Server check)
+// ROOT
 // ==========================
 app.get('/', (req, res) => {
   res.send('Server OK 🚀');
 });
+
+// ==========================
+// Launch Browser (Reusable)
+// ==========================
+async function launchBrowser() {
+  return await puppeteer.launch({
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--no-zygote',
+      '--single-process'
+    ],
+  });
+}
 
 // ==========================
 // GET → URL to PDF
@@ -26,9 +43,7 @@ app.get('/pdf', async (req, res) => {
   let browser;
 
   try {
-    browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    browser = await launchBrowser();
 
     const page = await browser.newPage();
 
@@ -56,7 +71,7 @@ app.get('/pdf', async (req, res) => {
     res.send(pdf);
 
   } catch (err) {
-    console.error(err);
+    console.error('GET ERROR:', err);
     res.status(500).send('Error generating PDF');
   } finally {
     if (browser) await browser.close();
@@ -76,9 +91,7 @@ app.post('/pdf', async (req, res) => {
   let browser;
 
   try {
-    browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    browser = await launchBrowser();
 
     const page = await browser.newPage();
 
@@ -106,7 +119,7 @@ app.post('/pdf', async (req, res) => {
     res.send(pdf);
 
   } catch (err) {
-    console.error(err);
+    console.error('POST ERROR:', err);
     res.status(500).send('Error generating PDF');
   } finally {
     if (browser) await browser.close();
