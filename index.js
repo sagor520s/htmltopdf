@@ -31,7 +31,7 @@ async function launchBrowser() {
 }
 
 // ==========================
-// GET → URL to PDF (FINAL FIX)
+// GET → URL to PDF (FIXED)
 // ==========================
 app.get('/pdf', async (req, res) => {
   const url = req.query.url;
@@ -41,26 +41,49 @@ app.get('/pdf', async (req, res) => {
   let browser;
 
   try {
-    // 🔥 STEP 1: HTML fetch (important fix)
+    console.log("Fetching URL:", url);
+
+    // 🔥 STEP 1: fetch HTML
     const response = await axios.get(url, {
-      timeout: 60000
+      responseType: 'text',
+      timeout: 60000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0'
+      }
     });
 
     let html = response.data;
 
-    // 🔥 STEP 2: browser start
+    console.log("HTML length:", html.length);
+
+    if (!html || html.length < 50) {
+      throw new Error("HTML empty or too small");
+    }
+
     browser = await launchBrowser();
     const page = await browser.newPage();
 
-    // 🔥 STEP 3: set HTML directly
+    // 👉 ensure valid HTML
+    if (!html.includes('<html')) {
+      html = `
+      <!DOCTYPE html>
+      <html>
+      <head><meta charset="UTF-8"></head>
+      <body>${html}</body>
+      </html>
+      `;
+    }
+
+    // 🔥 STEP 2: render
     await page.setContent(html, {
-      waitUntil: 'domcontentloaded',
+      waitUntil: 'load',
       timeout: 60000,
     });
 
     // ⏳ wait render
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(3000);
 
+    // 🔥 STEP 3: generate PDF
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
@@ -74,7 +97,7 @@ app.get('/pdf', async (req, res) => {
     res.send(pdf);
 
   } catch (err) {
-    console.error('GET ERROR:', err.message);
+    console.error("GET ERROR FULL:", err);
     res.status(500).send('Error generating PDF');
   } finally {
     if (browser) await browser.close();
@@ -95,7 +118,7 @@ app.post('/pdf', async (req, res) => {
     browser = await launchBrowser();
     const page = await browser.newPage();
 
-    // 👉 ensure full HTML
+    // 👉 ensure valid HTML
     if (!html.includes('<html')) {
       html = `
       <!DOCTYPE html>
@@ -111,11 +134,11 @@ app.post('/pdf', async (req, res) => {
     }
 
     await page.setContent(html, {
-      waitUntil: 'domcontentloaded',
+      waitUntil: 'load',
       timeout: 60000,
     });
 
-    // ⏳ wait
+    // ⏳ wait render
     await page.waitForTimeout(2000);
 
     const pdf = await page.pdf({
@@ -131,7 +154,7 @@ app.post('/pdf', async (req, res) => {
     res.send(pdf);
 
   } catch (err) {
-    console.error('POST ERROR:', err.message);
+    console.error("POST ERROR FULL:", err);
     res.status(500).send('Error generating PDF');
   } finally {
     if (browser) await browser.close();
@@ -139,8 +162,10 @@ app.post('/pdf', async (req, res) => {
 });
 
 // ==========================
+// SERVER START
+// ==========================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-}); 
+});
