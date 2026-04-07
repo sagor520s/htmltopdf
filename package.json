@@ -1,11 +1,9 @@
 {
   "name": "puppeteer-pdf-api",
   "version": "1.0.0",
-  "description": "PDF generator",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "postinstall": "npx puppeteer browsers install chrome"
+    "start": "node index.js"
   },
   "dependencies": {
     "express": "^4.18.2",
