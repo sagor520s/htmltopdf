@@ -25,7 +25,8 @@ app.get("/", (req, res) => {
   res.send("Fast Puppeteer API Running...");
 });
 
-// 🔥 2. PDF route
+
+// 🔥 2. HTML → PDF (আগের মতোই)
 app.post("/pdf", async (req, res) => {
   let page;
 
@@ -36,11 +37,10 @@ app.post("/pdf", async (req, res) => {
       return res.status(400).send("HTML required");
     }
 
-    // 🔥 new page (fast, no browser launch)
     page = await browser.newPage();
 
     await page.setContent(html, {
-      waitUntil: "domcontentloaded" // ⚡ faster than networkidle0
+      waitUntil: "domcontentloaded"
     });
 
     const pdf = await page.pdf({
@@ -48,7 +48,7 @@ app.post("/pdf", async (req, res) => {
       printBackground: true,
     });
 
-    await page.close(); // important
+    await page.close();
 
     res.set({
       "Content-Type": "application/pdf",
@@ -62,6 +62,44 @@ app.post("/pdf", async (req, res) => {
     res.status(500).send("Error generating PDF");
   }
 });
+
+
+// 🔥 3. NEW: URL → PDF
+app.post("/pdf-url", async (req, res) => {
+  let page;
+
+  try {
+    const { url } = req.body;
+
+    if (!url) {
+      return res.status(400).send("URL required");
+    }
+
+    page = await browser.newPage();
+
+    await page.goto(url, {
+      waitUntil: "domcontentloaded"
+    });
+
+    const pdf = await page.pdf({
+      format: "A4",
+      printBackground: true,
+    });
+
+    await page.close();
+
+    res.set({
+      "Content-Type": "application/pdf",
+    });
+
+    res.send(pdf);
+
+  } catch (err) {
+    console.error("FULL ERROR:", err);
+    res.status(500).send("Error generating PDF");
+  }
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("Server running on port " + PORT));
