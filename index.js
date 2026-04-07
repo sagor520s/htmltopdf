@@ -3,7 +3,6 @@ const puppeteer = require('puppeteer');
 
 const app = express();
 
-// JSON limit
 app.use(express.json({ limit: '25mb' }));
 
 // ==========================
@@ -14,41 +13,44 @@ app.get('/', (req, res) => {
 });
 
 // ==========================
-// Launch Browser (Reusable)
+// Launch Browser
 // ==========================
 async function launchBrowser() {
   return await puppeteer.launch({
-    headless: true,
+    headless: 'new',
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--no-zygote',
-      '--single-process'
+      '--single-process',
+      '--disable-web-security',
+      '--disable-features=IsolateOrigins,site-per-process'
     ],
   });
 }
 
 // ==========================
-// GET → URL to PDF
+// GET → URL to PDF (FIXED)
 // ==========================
 app.get('/pdf', async (req, res) => {
   const url = req.query.url;
 
-  if (!url) {
-    return res.status(400).send('URL missing');
-  }
+  if (!url) return res.status(400).send('URL missing');
 
   let browser;
 
   try {
     browser = await launchBrowser();
-
     const page = await browser.newPage();
 
+    // DEBUG (optional)
+    page.on('console', msg => console.log('PAGE LOG:', msg.text()));
+    page.on('pageerror', err => console.log('PAGE ERROR:', err));
+
     await page.goto(url, {
-      waitUntil: 'networkidle0',
+      waitUntil: 'domcontentloaded', // 🔥 FIXED
       timeout: 60000,
     });
 
@@ -79,24 +81,21 @@ app.get('/pdf', async (req, res) => {
 });
 
 // ==========================
-// POST → HTML to PDF
+// POST → HTML to PDF (BEST)
 // ==========================
 app.post('/pdf', async (req, res) => {
   const html = req.body.html;
 
-  if (!html) {
-    return res.status(400).send('HTML missing');
-  }
+  if (!html) return res.status(400).send('HTML missing');
 
   let browser;
 
   try {
     browser = await launchBrowser();
-
     const page = await browser.newPage();
 
     await page.setContent(html, {
-      waitUntil: 'networkidle0',
+      waitUntil: 'domcontentloaded', // 🔥 FIXED
       timeout: 60000,
     });
 
@@ -126,8 +125,6 @@ app.post('/pdf', async (req, res) => {
   }
 });
 
-// ==========================
-// SERVER START
 // ==========================
 const PORT = process.env.PORT || 3000;
 
