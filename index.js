@@ -13,7 +13,7 @@ app.get('/', (req, res) => {
 });
 
 // ==========================
-// Launch Browser
+// Launch Browser (Stable)
 // ==========================
 async function launchBrowser() {
   return await puppeteer.launch({
@@ -24,15 +24,13 @@ async function launchBrowser() {
       '--disable-dev-shm-usage',
       '--disable-gpu',
       '--no-zygote',
-      '--single-process',
-      '--disable-web-security',
-      '--disable-features=IsolateOrigins,site-per-process'
+      '--single-process'
     ],
   });
 }
 
 // ==========================
-// GET → URL to PDF
+// GET → URL to PDF (FIXED)
 // ==========================
 app.get('/pdf', async (req, res) => {
   const url = req.query.url;
@@ -45,18 +43,35 @@ app.get('/pdf', async (req, res) => {
     browser = await launchBrowser();
     const page = await browser.newPage();
 
+    // Debug (optional)
+    page.on('console', msg => console.log('PAGE:', msg.text()));
+    page.on('pageerror', err => console.log('ERROR:', err));
+
     await page.goto(url, {
       waitUntil: 'domcontentloaded',
       timeout: 60000,
     });
 
-    // ⏳ wait for full render
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // ⏳ wait render
+    await page.waitForTimeout(3000);
 
-    const pdf = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-    });
+    // 👉 যদি specific div থাকে (best)
+    const element = await page.$('#pdfArea');
+
+    let pdf;
+
+    if (element) {
+      pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+      });
+    } else {
+      // fallback full page
+      pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+      });
+    }
 
     res.set({
       'Content-Type': 'application/pdf',
@@ -74,7 +89,7 @@ app.get('/pdf', async (req, res) => {
 });
 
 // ==========================
-// POST → HTML to PDF (MAIN)
+// POST → HTML to PDF (BEST)
 // ==========================
 app.post('/pdf', async (req, res) => {
   let html = req.body.html;
@@ -87,25 +102,31 @@ app.post('/pdf', async (req, res) => {
     browser = await launchBrowser();
     const page = await browser.newPage();
 
-    // 👉 ensure full HTML structure
+    // 👉 fix broken HTML
     if (!html.includes('<html')) {
       html = `
       <!DOCTYPE html>
       <html>
       <head>
-      <meta charset="UTF-8">
+        <meta charset="UTF-8">
+        <style>
+          body { font-family: Arial, sans-serif; }
+        </style>
       </head>
       <body>
-      ${html}
+        ${html}
       </body>
       </html>
       `;
     }
 
-    await page.setContent(html);
+    await page.setContent(html, {
+      waitUntil: 'domcontentloaded',
+      timeout: 60000,
+    });
 
-    // ⏳ VERY IMPORTANT (fix empty PDF)
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // ⏳ important
+    await page.waitForTimeout(2000);
 
     const pdf = await page.pdf({
       format: 'A4',
