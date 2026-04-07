@@ -32,7 +32,7 @@ async function launchBrowser() {
 }
 
 // ==========================
-// GET → URL to PDF (FIXED)
+// GET → URL to PDF
 // ==========================
 app.get('/pdf', async (req, res) => {
   const url = req.query.url;
@@ -45,24 +45,17 @@ app.get('/pdf', async (req, res) => {
     browser = await launchBrowser();
     const page = await browser.newPage();
 
-    // DEBUG (optional)
-    page.on('console', msg => console.log('PAGE LOG:', msg.text()));
-    page.on('pageerror', err => console.log('PAGE ERROR:', err));
-
     await page.goto(url, {
-      waitUntil: 'domcontentloaded', // 🔥 FIXED
+      waitUntil: 'domcontentloaded',
       timeout: 60000,
     });
+
+    // ⏳ wait for full render
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: {
-        top: '10mm',
-        bottom: '10mm',
-        left: '10mm',
-        right: '10mm'
-      }
     });
 
     res.set({
@@ -81,10 +74,10 @@ app.get('/pdf', async (req, res) => {
 });
 
 // ==========================
-// POST → HTML to PDF (BEST)
+// POST → HTML to PDF (MAIN)
 // ==========================
 app.post('/pdf', async (req, res) => {
-  const html = req.body.html;
+  let html = req.body.html;
 
   if (!html) return res.status(400).send('HTML missing');
 
@@ -94,20 +87,29 @@ app.post('/pdf', async (req, res) => {
     browser = await launchBrowser();
     const page = await browser.newPage();
 
-    await page.setContent(html, {
-      waitUntil: 'domcontentloaded', // 🔥 FIXED
-      timeout: 60000,
-    });
+    // 👉 ensure full HTML structure
+    if (!html.includes('<html')) {
+      html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+      <meta charset="UTF-8">
+      </head>
+      <body>
+      ${html}
+      </body>
+      </html>
+      `;
+    }
+
+    await page.setContent(html);
+
+    // ⏳ VERY IMPORTANT (fix empty PDF)
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: {
-        top: '10mm',
-        bottom: '10mm',
-        left: '10mm',
-        right: '10mm'
-      }
     });
 
     res.set({
