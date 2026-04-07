@@ -18,12 +18,9 @@ app.post("/pdf", async (req, res) => {
       return res.status(400).send("HTML required");
     }
 
-    // ✅ Chrome path auto detect (important)
-    const executablePath = puppeteer.executablePath();
-
     browser = await puppeteer.launch({
       headless: "new",
-      executablePath: executablePath,
+      executablePath: "/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
@@ -53,7 +50,7 @@ app.post("/pdf", async (req, res) => {
     res.send(pdf);
 
   } catch (err) {
-    console.error("FULL ERROR:", err); // 🔥 debug
+    console.error("FULL ERROR:", err);
     res.status(500).send("Error generating PDF");
 
   } finally {
