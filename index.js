@@ -9,6 +9,8 @@ app.get("/", (req, res) => {
 });
 
 app.post("/pdf", async (req, res) => {
+  let browser;
+
   try {
     const { html } = req.body;
 
@@ -16,8 +18,16 @@ app.post("/pdf", async (req, res) => {
       return res.status(400).send("HTML required");
     }
 
-    const browser = await puppeteer.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    browser = await puppeteer.launch({
+      headless: "new",
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-zygote",
+        "--single-process"
+      ]
     });
 
     const page = await browser.newPage();
@@ -31,17 +41,19 @@ app.post("/pdf", async (req, res) => {
       printBackground: true,
     });
 
-    await browser.close();
-
     res.set({
       "Content-Type": "application/pdf",
       "Content-Length": pdf.length,
     });
 
     res.send(pdf);
+
   } catch (err) {
-    console.error(err);
+    console.error("FULL ERROR:", err); // 🔥 important for debug
     res.status(500).send("Error generating PDF");
+
+  } finally {
+    if (browser) await browser.close();
   }
 });
 
