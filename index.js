@@ -1,5 +1,6 @@
 const express = require('express');
 const puppeteer = require('puppeteer');
+const axios = require('axios');
 
 const app = express();
 
@@ -13,7 +14,7 @@ app.get('/', (req, res) => {
 });
 
 // ==========================
-// Launch Browser (Stable)
+// Launch Browser
 // ==========================
 async function launchBrowser() {
   return await puppeteer.launch({
@@ -30,7 +31,7 @@ async function launchBrowser() {
 }
 
 // ==========================
-// GET → URL to PDF (FIXED)
+// GET → URL to PDF (FINAL FIX)
 // ==========================
 app.get('/pdf', async (req, res) => {
   const url = req.query.url;
@@ -40,38 +41,30 @@ app.get('/pdf', async (req, res) => {
   let browser;
 
   try {
+    // 🔥 STEP 1: HTML fetch (important fix)
+    const response = await axios.get(url, {
+      timeout: 60000
+    });
+
+    let html = response.data;
+
+    // 🔥 STEP 2: browser start
     browser = await launchBrowser();
     const page = await browser.newPage();
 
-    // Debug (optional)
-    page.on('console', msg => console.log('PAGE:', msg.text()));
-    page.on('pageerror', err => console.log('ERROR:', err));
-
-    await page.goto(url, {
+    // 🔥 STEP 3: set HTML directly
+    await page.setContent(html, {
       waitUntil: 'domcontentloaded',
       timeout: 60000,
     });
 
     // ⏳ wait render
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(2000);
 
-    // 👉 যদি specific div থাকে (best)
-    const element = await page.$('#pdfArea');
-
-    let pdf;
-
-    if (element) {
-      pdf = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-      });
-    } else {
-      // fallback full page
-      pdf = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-      });
-    }
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+    });
 
     res.set({
       'Content-Type': 'application/pdf',
@@ -81,7 +74,7 @@ app.get('/pdf', async (req, res) => {
     res.send(pdf);
 
   } catch (err) {
-    console.error('GET ERROR:', err);
+    console.error('GET ERROR:', err.message);
     res.status(500).send('Error generating PDF');
   } finally {
     if (browser) await browser.close();
@@ -102,16 +95,13 @@ app.post('/pdf', async (req, res) => {
     browser = await launchBrowser();
     const page = await browser.newPage();
 
-    // 👉 fix broken HTML
+    // 👉 ensure full HTML
     if (!html.includes('<html')) {
       html = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8">
-        <style>
-          body { font-family: Arial, sans-serif; }
-        </style>
       </head>
       <body>
         ${html}
@@ -125,7 +115,7 @@ app.post('/pdf', async (req, res) => {
       timeout: 60000,
     });
 
-    // ⏳ important
+    // ⏳ wait
     await page.waitForTimeout(2000);
 
     const pdf = await page.pdf({
@@ -141,7 +131,7 @@ app.post('/pdf', async (req, res) => {
     res.send(pdf);
 
   } catch (err) {
-    console.error('POST ERROR:', err);
+    console.error('POST ERROR:', err.message);
     res.status(500).send('Error generating PDF');
   } finally {
     if (browser) await browser.close();
