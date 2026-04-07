@@ -4,11 +4,11 @@
   "description": "PDF generator",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "postinstall": "npx puppeteer browsers install chrome"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "puppeteer": "^22.0.0",
-    "axios": "^1.6.0"
+    "puppeteer": "^22.0.0"
   }
 }
