@@ -4,12 +4,30 @@ const puppeteer = require("puppeteer");
 const app = express();
 app.use(express.json({ limit: "10mb" }));
 
+let browser;
+
+// 🔥 1. Server start এ একবারই browser launch
+(async () => {
+  browser = await puppeteer.launch({
+    headless: "new",
+    executablePath: "/opt/render/project/.cache/chrome/linux-127.0.6533.88/chrome-linux64/chrome",
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu"
+    ]
+  });
+  console.log("🚀 Browser launched once!");
+})();
+
 app.get("/", (req, res) => {
-  res.send("Puppeteer PDF API Running...");
+  res.send("Fast Puppeteer API Running...");
 });
 
+// 🔥 2. PDF route
 app.post("/pdf", async (req, res) => {
-  let browser;
+  let page;
 
   try {
     const { html } = req.body;
@@ -18,20 +36,11 @@ app.post("/pdf", async (req, res) => {
       return res.status(400).send("HTML required");
     }
 
-    browser = await puppeteer.launch({
-      headless: "new",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu"
-      ]
-    });
-
-    const page = await browser.newPage();
+    // 🔥 new page (fast, no browser launch)
+    page = await browser.newPage();
 
     await page.setContent(html, {
-      waitUntil: "networkidle0",
+      waitUntil: "domcontentloaded" // ⚡ faster than networkidle0
     });
 
     const pdf = await page.pdf({
@@ -39,8 +48,11 @@ app.post("/pdf", async (req, res) => {
       printBackground: true,
     });
 
+    await page.close(); // important
+
     res.set({
       "Content-Type": "application/pdf",
+      "Content-Length": pdf.length,
     });
 
     res.send(pdf);
@@ -48,8 +60,6 @@ app.post("/pdf", async (req, res) => {
   } catch (err) {
     console.error("FULL ERROR:", err);
     res.status(500).send("Error generating PDF");
-  } finally {
-    if (browser) await browser.close();
   }
 });
 
