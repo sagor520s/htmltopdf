@@ -20,14 +20,11 @@ app.post("/pdf", async (req, res) => {
 
     browser = await puppeteer.launch({
       headless: "new",
-      executablePath: "/opt/render/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--no-zygote",
-        "--single-process"
+        "--disable-gpu"
       ]
     });
 
@@ -44,7 +41,6 @@ app.post("/pdf", async (req, res) => {
 
     res.set({
       "Content-Type": "application/pdf",
-      "Content-Length": pdf.length,
     });
 
     res.send(pdf);
@@ -52,7 +48,6 @@ app.post("/pdf", async (req, res) => {
   } catch (err) {
     console.error("FULL ERROR:", err);
     res.status(500).send("Error generating PDF");
-
   } finally {
     if (browser) await browser.close();
   }
